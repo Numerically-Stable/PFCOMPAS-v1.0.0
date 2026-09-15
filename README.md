@@ -35,7 +35,7 @@ graph TD
     N --> O{Max Load Reached?}
     O -- No --> E
     O -- Yes --> P([Stop])
-    
+```    
 ## Requirements
 * MATLAB (> R2021a)
 * Parallel Computing Toolbox
