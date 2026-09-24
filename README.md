@@ -114,7 +114,7 @@ flowchart TD
 
 ## Installation & Quick Start
 1. Clone the repository to your local machine:
-   `git clone https://github.com/NUmerically-Stable/PF-COMPAS.git`
+   `git clone https://github.com/NUmerically-Stable/PFCOMPAS-v1.0.0.git`
 2. Add the repository directory and its subfolders to your MATLAB path.
 3. **Run the Minimal Working Example (MWE):**
    Open MATLAB and execute the Single Edge Notched Tension (SENT) benchmark:
