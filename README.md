@@ -125,7 +125,7 @@ flowchart TD
 State variables are streamed directly to disk as XML Unstructured Grid files (`.vtu`) and registered within a master temporal collection wrapper (`.pvd`), preserving workstation memory. Open the `.pvd` file in ParaView to analyze the chronological evolution of the damage field and Verfürth error indicators.
 
 ## Documentation
-Comprehensive theoretical formulations, Jacobian derivations, and algorithmic flowcharts are available in the [PFCOMPAS-v1.0.0 Documentation Report](docs/PFCOMPAS-v1.0.0_Documentation.pdf).
+Comprehensive theoretical formulations, Jacobian derivations, and algorithmic flowcharts are available in the [PFCOMPAS-v1.0.0 Documentation Report]([PFCOMPAS-v1.0.0/blob/main/codeManual.pdf]).
 
 ## License
 This project is licensed under the MIT License - see the `LICENSE` file for details. 
