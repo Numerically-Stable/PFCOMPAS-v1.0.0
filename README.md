@@ -10,31 +10,104 @@ PFCOMPAS-v1.0.0 is a self-contained, high-performance MATLAB software package fo
 * **Adaptive Controller:** An adaptive predictive load-stepping heuristic dynamically scales load increments to bypass manual tuning across stiff pre-cracking and unstable post-peak softening regimes.
 
 ```mermaid
-graph TD
-    A([Start: Input Geometry, Material, Mesh]) --> B[Pre-Processing: buildMeshStruct2D]
-    B --> C[Compute Static Assembly Patterns & Edge Hash-Maps]
-    C --> D[Initialize Phase-Field: Screened Poisson Equation]
-    D --> E{Adaptive Load Increment: updateDisplacementBC}
-    
-    E --> F[Staggered Alternate Minimization Loop]
-    
-    subgraph Staggered Solver
-    F --> G[Mechanical Newton-Raphson Solver]
-    G --> H{Convergence: u & R_u?}
-    H -- No --> G
-    H -- Yes --> I[Update History Field: H at Gauss Points]
-    I --> J[Phase-Field Active-Set Newton Solver]
-    J --> K{Convergence: phi & R_phi?}
-    K -- No --> J
-    K -- Yes --> L{Staggered Convergence?}
-    L -- No --> F
-    end
-    
-    L -- Yes --> M[Evaluate Verfürth Error Estimators]
-    M --> N[Export VTU/PVD XML Data to Disk]
-    N --> O{Max Load Reached?}
-    O -- No --> E
-    O -- Yes --> P([Stop])
+flowchart TD
+
+    %% ================================================================
+    %% GLOBAL INITIALIZATION
+    %% ================================================================
+    A([Start]) --> B[Preprocessing and<br/>Initialization]
+
+    B --> C[Initialize Solution State<br/>
+            <b>u₀, φ₀, H₀</b>]
+
+    %% ================================================================
+    %% OUTER ADAPTIVE LOAD-STEP LOOP
+    %% ================================================================
+    C --> D[Accepted State<br/>
+            <b>uₙ, φₙ, Hₙ, λₙ</b>]
+
+    D --> E[Propose Trial Load Step<br/>
+            λₙ₊₁ᵗʳ = λₙ + Δλ]
+
+    %% ================================================================
+    %% STAGGERED SOLVER
+    %% ================================================================
+    E --> F[Staggered Solver]
+
+    F --> G[Displacement<br/>Newton Solve]
+
+    G --> H[History Field<br/>Update]
+
+    H --> I[Phase-Field<br/>Newton Solve]
+
+    I --> J{Staggered<br/>Converged?}
+
+    %% ================================================================
+    %% STAGGERED NON-CONVERGENCE
+    %% ================================================================
+    J -- No --> K[Reduce Δλ<br/>and Retry]
+
+    K -->|Δλ ← Δλ / 2| D
+
+    %% ================================================================
+    %% POST-PROCESSING
+    %% ================================================================
+    J -- Yes --> L[Trial Post-Processing<br/>
+                    E, RF and Diagnostics]
+
+    L --> M{max|Δφ| ≤ Δφₘₐₓ?}
+
+    %% ================================================================
+    %% EXCESSIVE PHASE-FIELD EVOLUTION
+    %% ================================================================
+    M -- No --> K
+
+    %% ================================================================
+    %% ACCEPTANCE
+    %% ================================================================
+    M -- Yes --> N[Accept Trial State<br/>
+                    uₙ₊₁, φₙ₊₁, Hₙ₊₁]
+
+    N --> O[Adaptive Update of Δλ<br/>
+            Based on Solver Difficulty<br/>
+            and max|Δφ|]
+
+    %% ================================================================
+    %% OUTPUT / DIAGNOSTICS
+    %% ================================================================
+    O --> P[Store Accepted-Step Data<br/>
+            Stress, Error Indicators,<br/>
+            Energies, Energy Balance<br/>
+            and ParaView Output]
+
+    P --> Q[Next Load Step]
+
+    %% ================================================================
+    %% OUTER LOAD-STEP RETURN
+    %% ================================================================
+    Q --> D
+
+
+    %% ================================================================
+    %% STYLING
+    %% ================================================================
+    classDef startEnd fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B1B1B;
+    classDef initialization fill:#E3F2FD,stroke:#1565C0,stroke-width:1.5px,color:#1B1B1B;
+    classDef accepted fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#1B1B1B;
+    classDef trial fill:#FFF8E1,stroke:#F9A825,stroke-width:1.5px,color:#1B1B1B;
+    classDef solver fill:#EDE7F6,stroke:#6A1B9A,stroke-width:1.5px,color:#1B1B1B;
+    classDef decision fill:#FFF3E0,stroke:#EF6C00,stroke-width:2px,color:#1B1B1B;
+    classDef rejection fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#1B1B1B;
+    classDef output fill:#E0F2F1,stroke:#00695C,stroke-width:1.5px,color:#1B1B1B;
+
+    class A startEnd;
+    class B,C initialization;
+    class D,N accepted;
+    class E trial;
+    class F,G,H,I solver;
+    class J,M decision;
+    class K rejection;
+    class L,O,P,Q output;
 ```    
 ## Requirements
 * MATLAB (> R2021a)
