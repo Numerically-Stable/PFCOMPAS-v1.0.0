@@ -18,13 +18,13 @@ flowchart TD
     A([Start]) --> B[Preprocessing and<br/>Initialization]
 
     B --> C[Initialize Solution State<br/>
-            <b>u₀, φ₀, H₀</b>]
+            u₀, φ₀, H₀]
 
     %% ================================================================
     %% OUTER ADAPTIVE LOAD-STEP LOOP
     %% ================================================================
     C --> D[Accepted State<br/>
-            <b>uₙ, φₙ, Hₙ, λₙ</b>]
+            uₙ, φₙ, Hₙ, λₙ]
 
     D --> E[Propose Trial Load Step<br/>
             λₙ₊₁ᵗʳ = λₙ + Δλ]
@@ -47,7 +47,7 @@ flowchart TD
     %% ================================================================
     J -- No --> K[Reduce Δλ<br/>and Retry]
 
-    K -->|Δλ ← Δλ / 2| D
+    K -->|Δλ = Δλ / 2| D
 
     %% ================================================================
     %% POST-PROCESSING
@@ -55,7 +55,7 @@ flowchart TD
     J -- Yes --> L[Trial Post-Processing<br/>
                     E, RF and Diagnostics]
 
-    L --> M{max|Δφ| ≤ Δφₘₐₓ?}
+    L --> M{max Δφ ≤ Δφₘₐₓ?}
 
     %% ================================================================
     %% EXCESSIVE PHASE-FIELD EVOLUTION
@@ -70,7 +70,7 @@ flowchart TD
 
     N --> O[Adaptive Update of Δλ<br/>
             Based on Solver Difficulty<br/>
-            and max|Δφ|]
+            and max Δφ]
 
     %% ================================================================
     %% OUTPUT / DIAGNOSTICS
@@ -86,7 +86,6 @@ flowchart TD
     %% OUTER LOAD-STEP RETURN
     %% ================================================================
     Q --> D
-
 
     %% ================================================================
     %% STYLING
@@ -108,7 +107,7 @@ flowchart TD
     class J,M decision;
     class K rejection;
     class L,O,P,Q output;
-```    
+```
 ## Requirements
 * MATLAB (> R2021a)
 * Parallel Computing Toolbox
