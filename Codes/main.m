@@ -22,7 +22,7 @@ tic;
 material.E  = 210000;       % Young's modulus [N/mm^2]
 material.nu = 0.30;         % Poisson ratio
 material.Gc = 2.7;          % Fracture energy [N/mm]
-material.l0 = 0.04;         % Length scale [mm]
+material.l0 = 0.1;         % Length scale [mm]
 material.xk = 1e-8;         % Residual stiffness kappa
 
 % ----------------------------------------------------------
@@ -117,7 +117,7 @@ load.maxDisplacement = 0.01;     % [mm]
 load.lambdaStart    = 0.0;
 load.lambdaEnd      = 1.0;
 load.dLambdaInitial = 0.02;
-load.dLambdaMin     = 1e-8;
+load.dLambdaMin     = 1e-6;
 load.dLambdaMax     = 0.02;
 
 % =========================================================
@@ -164,8 +164,8 @@ solver.phiBoundTolerance = 1e-12;
 solver.targetStaggeredIter = 15;
 solver.targetNewtonU       = 10;
 solver.targetNewtonPhi     = 10;
-solver.targetDeltaPhi       = 0.02;
-solver.maxAcceptedDeltaPhi  = 0.85;
+solver.targetDeltaPhi       = 0.002;
+solver.maxAcceptedDeltaPhi  = 0.05;
 
 solver.verbose = true;
 
@@ -232,7 +232,7 @@ output.storeHistory    = false;
 output.solutionEvery = 10;
 output.writeParaView = true;
 output.saveResults = true;
-output.baseName = 'SENT_AmorQuad_w_02_h_02_lo_04';
+output.baseName = 'SENT_AmorQuad_h_0.02_lo_0.1';
 timeStamp = char(datetime('now','Format','yyyy_MM_dd_HH_mm_ss'));
 output.resultsFolder = fullfile([output.baseName '_' timeStamp]);
 if ~exist(output.resultsFolder,'dir'), mkdir(output.resultsFolder); end
@@ -500,16 +500,304 @@ if output.saveResults
     end
 end
 
-fig1 = figure;
-uDisp = results.time.lambda.*load.maxDisplacement;
-plot(uDisp, results.force.RF, 'LineWidth',2);
-xlabel('\delta'); ylabel('Reaction force'); grid on; title('RF–\delta');
-savefig(fig1, fullfile(output.resultsFolder, [output.baseName '_RF_delta.fig']));
+%% ========================================================================
+% BASIC QUANTITIES
+% ========================================================================
+% Maximum prescribed displacement
+if isfield(results.time,'load')
+    maxDisplacement = results.time.load;
+else
+    error('results.time.load was not found.');
+end
+% Load/displacement history
+lambda = results.time.lambda;
+uDisp = lambda .* maxDisplacement;
+% Reaction force
+RF = results.force.RF;
+% Energies
+Eelastic  = results.energy.elastic;
+Efracture = results.energy.fracture;
+Etotal    = results.energy.total;
 
+%% ========================================================================
+% 1. REACTION FORCE - DISPLACEMENT
+% ========================================================================
+fig1 = figure;
+plot(uDisp, RF, 'LineWidth', 2);
+xlabel('\delta');
+ylabel('Reaction force');
+title('Reaction force-displacement response');
+grid on;
+box on;
+adaptiveName = [baseName '_RF_delta'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 2. ENERGY EVOLUTION
+% ========================================================================
 fig2 = figure;
-plot(uDisp, results.energy.elastic, 'b','LineWidth',2); hold on;
-plot(uDisp, results.energy.fracture,'r','LineWidth',2);
-plot(uDisp, results.energy.total, 'm--','LineWidth',2);
-legend('Elastic','Fracture','Total'); xlabel('\delta'); ylabel('Energy'); grid on;
-savefig(fig2, fullfile(output.resultsFolder, [output.baseName '_Energy.fig']));
+plot(uDisp, Eelastic,'LineWidth', 2);
+hold on;
+plot(uDisp, Efracture,'LineWidth', 2);
+plot(uDisp, Etotal,'--','LineWidth', 2);
+legend('Elastic','Fracture','Total','Location','best');
+xlabel('\delta');
+ylabel('Energy');
+title('Energy evolution');
+grid on;
+box on;
+adaptiveName = [baseName '_Energy'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 3. VERFÜRTH ERROR INDICATORS
+% ========================================================================
+fig3 = figure;
+plot(uDisp,results.indicator.u,'LineWidth', 2);
+hold on;
+plot(uDisp,results.indicator.phi,'LineWidth', 2);
+legend('\eta_u','\eta_\phi','Location','best');
+xlabel('\delta');
+ylabel('Error indicator');
+title('Verfürth error indicators');
+grid on;
+box on;
+adaptiveName = [baseName '_ErrorIndicators'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 4. VERFÜRTH ERROR INDICATORS - LOG SCALE
+% ========================================================================
+fig4 = figure;
+semilogy(uDisp,results.indicator.u,'LineWidth', 2);
+hold on;
+semilogy(uDisp,results.indicator.phi,'LineWidth', 2);
+legend('\eta_u','\eta_\phi','Location','best');
+xlabel('\delta');
+ylabel('Error indicator');
+title('Verfürth error indicators - logarithmic scale');
+grid on;
+box on;
+adaptiveName = [baseName '_ErrorIndicators_Log'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 5. ADAPTIVE LOAD STEP SIZE
+% ========================================================================
+fig5 = figure;
+semilogy(uDisp,results.time.deltaLambda,'LineWidth', 2);
+xlabel('\delta');
+ylabel('\Delta\lambda');
+title('Adaptive load increment');
+grid on;
+box on;
+adaptiveName = [baseName '_DeltaLambda'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 6. LOAD STEP SIZE + MAXIMUM PHASE-FIELD CHANGE
+% ========================================================================
+fig6 = figure;
+yyaxis left
+semilogy(uDisp,results.time.deltaLambda,'LineWidth', 2);
+ylabel('\Delta\lambda');
+yyaxis right
+plot(uDisp,results.adapt.maxDeltaPhi,'LineWidth', 2);
+ylabel('max |\Delta\phi|');
+xlabel('\delta');
+title('Adaptive load stepping and phase-field increment');
+grid on;
+box on;
+adaptiveName = [baseName '_AdaptiveStep_PhiChange'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 7. ADAPTIVE DIFFICULTY
+% ========================================================================
+fig7 = figure;
+plot(uDisp,results.adapt.difficulty,'LineWidth', 2);
+xlabel('\delta');
+ylabel('Difficulty');
+title('Adaptive stepping difficulty');
+grid on;
+box on;
+adaptiveName = [baseName '_Difficulty'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 8. INCREMENTAL ENERGY BALANCE
+% ========================================================================
+fig8 = figure;
+plot(uDisp,results.energyBalance.deltaInternal,'LineWidth', 2);
+hold on;
+plot(uDisp,results.energyBalance.deltaExternal,'LineWidth', 2);
+plot(uDisp,results.energyBalance.residual,'--','LineWidth', 2);
+legend('\Delta E_{internal}','\Delta W_{external}','Energy residual','Location','best');
+xlabel('\delta');
+ylabel('Incremental energy');
+title('Incremental energy balance');
+grid on;
+box on;
+adaptiveName = [baseName '_EnergyBalance'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 9. RELATIVE ENERGY BALANCE ERROR
+% ========================================================================
+fig9 = figure;
+semilogy(uDisp,abs(results.energyBalance.relativeError),'LineWidth', 2);
+xlabel('\delta');
+ylabel('Relative energy error');
+title('Relative energy balance error');
+grid on;
+box on;
+adaptiveName = [baseName '_EnergyBalanceRelativeError'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 10. STAGGERED ITERATIONS
+% ========================================================================
+fig10 = figure;
+plot(uDisp,results.solver.nStaggered,'LineWidth', 2);
+xlabel('\delta');
+ylabel('Number of staggered iterations');
+title('Staggered solver iterations');
+grid on;
+box on;
+adaptiveName = [baseName '_StaggeredIterations'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 11. NEWTON ITERATIONS
+% ========================================================================
+fig11 = figure;
+plot(uDisp,results.solver.nNewtonU,'LineWidth', 2);
+hold on;
+plot(uDisp,results.solver.nNewtonPhi,'LineWidth', 2);
+legend('Displacement','Phase field','Location','best');
+xlabel('\delta');
+ylabel('Number of Newton iterations');
+title('Newton solver iterations');
+grid on;
+box on;
+adaptiveName = [baseName '_NewtonIterations'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 12. NONLINEAR SOLVER RESIDUALS
+% ========================================================================
+fig12 = figure;
+semilogy(uDisp,abs(results.solver.finalUResidual),'LineWidth', 2);
+hold on;
+semilogy(uDisp,abs(results.solver.finalPhiResidual),'LineWidth', 2);
+legend('Displacement residual','Phase-field residual','Location','best');
+xlabel('\delta');
+ylabel('Residual');
+title('Final nonlinear residuals');
+grid on;
+box on;
+adaptiveName = [baseName '_SolverResiduals'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 13. SOLUTION CHANGES
+% ========================================================================
+fig13 = figure;
+semilogy(uDisp,abs(results.solver.uChange),'LineWidth', 2);
+hold on;
+semilogy(uDisp,abs(results.solver.phiChange),'LineWidth', 2);
+legend('||\Delta u||','||\Delta\phi||','Location','best');
+xlabel('\delta');
+ylabel('Solution change');
+title('Solution increments');
+grid on;
+box on;
+adaptiveName = [baseName '_SolutionChanges'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% 14. COMPLETE ANALYSIS SUMMARY
+% ========================================================================
+fig14 = figure;
+tiledlayout(2,2);
+
+% -------------------------------------------------------------------------
+% Reaction force
+% -------------------------------------------------------------------------
+nexttile;
+plot(uDisp,RF,'LineWidth', 2);
+xlabel('\delta');
+ylabel('Reaction force');
+title('Load response');
+grid on;
+box on;
+
+% -------------------------------------------------------------------------
+% Energy
+% -------------------------------------------------------------------------
+nexttile;
+plot(uDisp,Eelastic,'LineWidth', 2);
+hold on;
+plot(uDisp,Efracture,'LineWidth', 2);
+plot(uDisp,Etotal,'--','LineWidth', 2);
+xlabel('\delta');
+ylabel('Energy');
+title('Energy');
+legend('Elastic','Fracture','Total','Location','best');
+grid on;
+box on;
+
+% -------------------------------------------------------------------------
+% Error indicators
+% -------------------------------------------------------------------------
+nexttile;
+semilogy(uDisp,results.indicator.u,'LineWidth', 2);
+hold on;
+semilogy(uDisp,results.indicator.phi,'LineWidth', 2);
+xlabel('\delta');
+ylabel('Error indicator');
+title('Verfürth indicators');
+legend('\eta_u','\eta_\phi','Location','best');
+grid on;
+box on;
+
+% -------------------------------------------------------------------------
+% Energy balance
+% -------------------------------------------------------------------------
+nexttile;
+semilogy(uDisp,abs(results.energyBalance.relativeError),'LineWidth', 2);
+xlabel('\delta');
+ylabel('Relative error');
+title('Energy balance');
+grid on;
+box on;
+
+sgtitle('PF-COMPAS analysis summary');
+adaptiveName = [baseName '_AnalysisSummary'];
+savefig(gcf,fullfile(resultFolder,[adaptiveName '.fig']));
+saveas(gcf,fullfile(resultFolder,[adaptiveName '.svg']));
+
+%% ========================================================================
+% FINISHED
+% ========================================================================
+fprintf('\n');
+fprintf('============================================================\n');
+fprintf('Analysis completed successfully.\n');
+fprintf('============================================================\n');
+fprintf('Results folder:\n%s\n',resultFolder);
+fprintf('============================================================\n');
+fprintf('\n');
 toc;
